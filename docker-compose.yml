@@ -6,6 +6,7 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
     ulimits:
       memlock:
         soft: -1
@@ -15,10 +16,54 @@ services:
         hard: 65536
     cap_add:
       - IPC_LOCK
+    volumes:
+      - ./elk/elasticsearch/elasticerch_data:/usr/share/elasticsearch/data
     networks:
       - elastic
     ports:
       - "9200:9200"
+      - "9300:9300"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl --silent --fail localhost:9200/_cluster/health || exit 1",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200k"
+        max-file: "10"
+
+  logstash:
+    image: logstash:8.13.4
+    container_name: log
+    ports:
+      - "5000:5000/tcp"
+      - "5000:5000/udp"
+      - "5044:5044"
+      - "9600:9600"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9600"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - ./elk/logstash/logstash_data:/usr/share/logstash/data
+      - ./elk/logstash/logstash_logs:/usr/share/logstash/logs
+      - ./elk/logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+    depends_on:
+      - elasticsearch
+    networks:
+      - elastic
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200k"
+        max-file: "10"
 
   kibana:
     image: kibana:8.13.4
@@ -28,8 +73,22 @@ services:
       - "5601:5601"
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - MONITORING_UI_CONTAINER_ELASTICSEARCH_ENABLED=true
+      - MONITORING_UI_CONTAINER_LOGSTASH_ENABLED=true
     networks:
       - elastic
+    depends_on:
+      - elasticsearch
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5601"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200k"
+        max-file: "10"
 
 networks:
   elastic:
