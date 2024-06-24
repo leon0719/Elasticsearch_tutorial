@@ -1,4 +1,6 @@
 .venv
 __pycache__
-elk/elasticsearch
+elk/elasticsearch/elasticerch_data
 elk/logstash/logstash_data
+elk/logstash/logstash_logs
+zomato.csv

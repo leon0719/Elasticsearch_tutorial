@@ -1,5 +1,8 @@
 services:
   elasticsearch:
+    build:
+      context: .
+      dockerfile: ./elk/elasticsearch/dockerfile
     image: elasticsearch:8.13.0
     container_name: elasticsearch
     restart: always
@@ -39,8 +42,13 @@ services:
         max-file: "10"
 
   logstash:
-    image: logstash:8.13.4
+    build:
+      context: .
+      dockerfile: ./elk/logstash/dockerfile
     container_name: log
+    environment:
+      - LOG_LEVEL=info
+    command: ["logstash", "-f", "/usr/share/logstash/pipeline/logstash.conf"]
     ports:
       - "5000:5000/tcp"
       - "5000:5000/udp"
@@ -54,7 +62,9 @@ services:
     volumes:
       - ./elk/logstash/logstash_data:/usr/share/logstash/data
       - ./elk/logstash/logstash_logs:/usr/share/logstash/logs
-      - ./elk/logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+      - ./elk/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml
+      - ./elk/logstash/pipeline/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+      - ./test.csv:/usr/share/logstash/zomato.csv
     depends_on:
       - elasticsearch
     networks:
@@ -71,8 +81,9 @@ services:
     restart: always
     ports:
       - "5601:5601"
+    volumes:
+      - ./elk/kibana/config.yml:/usr/share/kibana/config/kibana.yml
     environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
       - MONITORING_UI_CONTAINER_ELASTICSEARCH_ENABLED=true
       - MONITORING_UI_CONTAINER_LOGSTASH_ENABLED=true
     networks:
